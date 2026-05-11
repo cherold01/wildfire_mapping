@@ -1,6 +1,7 @@
 #this is the script to run for using the interactive front notebook
 #it is just the entire contents from the front notebook with the display statements removed
 
+
 def get_map(userdefined_area, enddate = None):   
     import pandas as pd
     import requests
@@ -11,50 +12,6 @@ def get_map(userdefined_area, enddate = None):
     from datetime import datetime
     import matplotlib.pyplot as plt
     from pathlib import Path
-
-
-####################################
-
-#fancy pants user input
-    import ipywidgets as widgets
-    from IPython.display import display
-    import time
-
-    # Define continents
-    continents = [
-        "Choose continent",
-        "Africa",
-        "Antarctica",
-        "Asia",
-        "Europe",
-        "North America",
-        "South America",
-        "Australia",
-        "Oceania"
-    ]
-
-    # Create dropdown with default selection
-    dropdown = widgets.Dropdown(
-        options=continents,
-        value="Choose continent",  # Set default value
-        description='Continent:',
-        disabled=False,
-    )
-    display(dropdown)
-
-    # Wait until a valid continent is selected
-    print("Waiting for continent selection...")
-    while dropdown.value == "Choose continent":
-        print(dropdown.value)
-        time.sleep(0.1)  # Small delay to avoid CPU overload
-
-    # Now proceed with the selected continent
-    selected_continent = dropdown.value
-    print(f"Proceeding with: {selected_continent}")
-    # Your script continues here...
-
-    userdefined_area = selected_continent
-#################################################
 
     MAP_KEY = '5eae605403f5deded880b550afef3667'
 
