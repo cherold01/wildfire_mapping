@@ -82,8 +82,8 @@ def get_map(userdefined_area, enddate = None):
     day_range = 1 #in range(1,5)
     if enddate is None:
         enddate = datetime.now() #get todays date
-    enddate_str = '2026-04-01' #optional: user input for the date
-    enddate = pd.to_datetime(enddate_str, format = '%Y-%m-%d')
+    #enddate_str = '2026-04-01' #optional: user input for the date
+    #enddate = pd.to_datetime(enddate_str, format = '%Y-%m-%d')
 
 
     #set sensor parameter based on enddate
