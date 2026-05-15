@@ -1,8 +1,23 @@
 #this is the script to run for using the interactive front notebook
 #it is just the entire contents from the front notebook with the display statements removed
 
+def get_continents():
+    # Define continents
+    continents = [
+        "Choose continent",
+        "Africa",
+        "Antarctica",
+        "Asia",
+        "Europe",
+        "North America",
+        "South America",
+        "Australia",
+        "Oceania"
+    ]
+    return continents
 
-def get_map(userdefined_area, enddate = None):   
+
+def get_map(userdefined_area, enddate = None):   #accepts userdefined area as string in the dict defined above, enddate as string format 'YYYY-MM-DD'
     import pandas as pd
     import requests
     import geopandas as gpd
@@ -12,8 +27,16 @@ def get_map(userdefined_area, enddate = None):
     from datetime import datetime
     import matplotlib.pyplot as plt
     from pathlib import Path
+    from folium.plugins import MarkerCluster
+    import os #for offline version only
+    import webbrowser #for offline version only
 
-    MAP_KEY = '5eae605403f5deded880b550afef3667'
+
+    #########################################################33
+    
+    #API request
+
+    MAP_KEY = '5eae605403f5deded880b550afef3667' #my unique map key for the API request
 
     def get_transaction_count() :
         count = 0
@@ -33,11 +56,7 @@ def get_map(userdefined_area, enddate = None):
     daterange_df['min_date'] = pd.to_datetime(daterange_df['min_date'], format = '%Y-%m-%d')
     daterange_df['max_date'] = pd.to_datetime(daterange_df['max_date'], format = '%Y-%m-%d')
 
-    #set one sensor
-    sensor = daterange_df["data_id"][2] #VIIRS has better resolution than other sensors (375m vs 1000m), NRT means only a few minutes lag
-    print("Current sensor name: ", sensor)
-
-
+    
     #dict to map continent names to bounding boxes
     continents_bounding_boxes = {
         "africa": "-20,-37.5,52,37.5",
@@ -67,43 +86,43 @@ def get_map(userdefined_area, enddate = None):
         standardized_name = continent_name.strip().lower()
         bbox = continents_bounding_boxes.get(standardized_name)
         if bbox is None:
-            print('No Bounding box could be matched to your input.')
+            print('Error: No Bounding box could be matched to your input.')
         return bbox 
 
 
     #retrieve data 
 
-    #user input for area
-    #userdefined_area = 'oceania'
-    #enddate = None
+    enddate = pd.to_datetime(enddate, format = '%Y-%m-%d')
 
     #parameters for API call
     area = get_continent_bbox(userdefined_area) #either "world" or bbox lonmin,latmin,lonmax,latmax, e. g. 0,35,25,70 for europe, "-20,-37.5,52,37.5"  for africa
     day_range = 1 #in range(1,5)
-    if enddate is None:
-        enddate = datetime.now() #get todays date
-    #enddate_str = '2026-04-01' #optional: user input for the date
-    #enddate = pd.to_datetime(enddate_str, format = '%Y-%m-%d')
-
 
     #set sensor parameter based on enddate
     #MODIS_NRT where available
     #else: MODIS_SP
+    #else: 
     #error if neither of them is available
     mindate_NRT = daterange_df['min_date'][daterange_df['data_id'] == 'VIIRS_NOAA20_NRT'].values[0]
     mindate_SP = daterange_df['min_date'][daterange_df['data_id'] == 'VIIRS_NOAA20_SP'].values[0]
-
+    mindate_modis = daterange_df['min_date'][daterange_df['data_id'] == 'MODIS_SP'].values[0]
 
     request_data = True #flag to prevent data request for invalid enddate
 
     #set sensor based on enddate
     if enddate > mindate_NRT:
         sensor = 'VIIRS_NOAA20_NRT'
+        print('The displayed data is non-processed and not of science quality.')
     elif enddate >= mindate_SP:
         sensor = 'VIIRS_NOAA20_SP'
+    elif enddate >= mindate_modis:
+        sensor = 'MODIS_SP'
     else:
-        print(f"Out of date range, please select an end date after {mindate_SP}")
+        print(f"Out of date range, please select an end date after {mindate_modis}")
         request_data = False
+
+
+    print("Current sensor name: ", sensor)
 
     #data request
     if request_data:
@@ -111,15 +130,20 @@ def get_map(userdefined_area, enddate = None):
         start_count = get_transaction_count()
         df_area = pd.read_csv(area_url)
         end_count = get_transaction_count()
-        print ('We used %i transactions.' % (end_count-start_count))
-
+        print ('We used %i API transactions.' % (end_count-start_count))
+    
+    ####################################################
+    #clean the obtained data
 
 
     #clean df_area:
 
+    if sensor == 'MODIS_SP':
+        mask = df_area['confidence'] > 30
+    else:
+        mask = df_area['confidence'] != "l"
     #remove low confidence entries
-    mask = df_area['confidence'] != "l"
-    print((df_area['confidence'] == "l").sum(), "Entries removed due to low confidence")
+    print(mask.sum(), "Entries removed due to low confidence")
     df_area = df_area[mask]
 
     #format datetime
@@ -130,7 +154,8 @@ def get_map(userdefined_area, enddate = None):
     df_area = df_area.drop(columns = ["acq_date", "acq_time"])
 
 
-
+    ###################################################################
+    #convert to GeoDataFrame and perform spatial calculations
 
     area_gpd = gpd.GeoDataFrame(
         df_area, geometry=gpd.points_from_xy(df_area["longitude"], df_area["latitude"], crs = 4326)
@@ -155,7 +180,7 @@ def get_map(userdefined_area, enddate = None):
     print(len(area_gpd_sub)- fire_countries_merged.groupby('CountryName')['frp'].count().sum(), "fires were not matched to a country") #some fires are not matched to a country. probably due to polygon simplification
 
     #user info print
-    print("The map is loading, this might take a few moments.")
+    print("The map is loading, this might take a minute or so. The map will open in your browser once it is ready.")
 
     #count number of fires by country
 
@@ -169,20 +194,8 @@ def get_map(userdefined_area, enddate = None):
     fire_countries_count['fires/100\'000km2'] = (fire_countries_count['firecount']/fire_countries_count['area_km2']*100000).round(3)
 
 
-    #find most intense fire per country
-    fire_countries_max = pd.DataFrame(fire_countries_merged.groupby('CountryName')['frp'].max())
-    fire_countries_max = fire_countries_max.rename(columns= {'frp': 'max_frp'}) #rename column to max
-    fire_countries_max.head()
-    fire_countries_max = fire_countries_max.sort_values('max_frp', ascending= False)
-    fig, ax = plt.subplots(figsize=(8,5))
-    plt.xticks(rotation = 90)
-    ax.bar(fire_countries_max.index, fire_countries_max['max_frp'])
-    ax.set_title('Maximum Fire intensity per country')
-    ax.set_ylabel('FRP')
-
-
-
-    from folium.plugins import MarkerCluster
+    #####################################################################################3
+    #set up the map
 
 
     #define mapcenter based on selected continent
@@ -201,20 +214,6 @@ def get_map(userdefined_area, enddate = None):
         weight=2,
         popup = "Selected Area"
     ).add_to(m6)
-
-    """
-    #add hover over single icons
-    folium.GeoJson(
-        area_gpd_sub,
-        name="Individual wildfires",
-        show = False, #default off
-        tooltip=folium.GeoJsonTooltip(fields=["frp"], aliases=["Fire Reactive Power:"]),
-        # Override the default teardrop with a blue bicycle icon
-        marker=folium.Marker(  # <- THIS IS NEW
-            icon=folium.Icon(color="red", icon="fire", prefix="fa", icon_color= "orange")
-        ),
-    ).add_to(m6)
-    """
 
     #############################################
     #add clusters
@@ -318,11 +317,36 @@ def get_map(userdefined_area, enddate = None):
     # Add a title using folium.Element
 
     title_html = f'''
-                <h3 align="center" style="font-size:16px"><b>Wildfires in selected area on {enddate.strftime(format = '%Y-%m-%d')}</b></h3>
+                <h3 align="center" style="font-size:16px"><b>Wildfires in {userdefined_area} on {enddate.strftime(format = '%Y-%m-%d')}</b></h3>
                 '''
 
     m6.get_root().html.add_child(folium.Element(title_html))
 
-    m6.save('docs/index.html')
 
-    display(m6)
+    #create legend for the blue rectangle bbox
+    # Create HTML for the legend
+    legend_html = '''
+    <div style="position: fixed; 
+        bottom: 10px; right: 10px; width: 150px; height: 70px; 
+        background-color: white; border:2px solid grey; z-index:9999; 
+        font-size:16px; padding: 5px">
+        
+        <p style="margin: 0 0 5px 0;"><b>Legend</b></p>
+        
+        <p style="margin: 5px 0;">
+            <svg width="20" height="20" style="vertical-align: middle;">
+                <rect x="2" y="2" width="16" height="16" 
+                    fill="none" stroke="blue" stroke-width="2"/>
+            </svg>
+            Selected Area
+        </p>
+    </div>
+    '''
+    # Add the legend to the map
+    m6.get_root().html.add_child(folium.Element(legend_html))
+
+    file_path = 'docs/index.html'
+    m6.save(file_path) #save as html file
+
+    #display(m6)
+    webbrowser.open_new_tab(f'file://{os.path.realpath(file_path)}')
