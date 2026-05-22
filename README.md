@@ -30,11 +30,14 @@ https://www.geoboundaries.org/globalDownloads.html -> ADM0 geoPackage
 ## Usage
 
 **Normal version of the notebook with intermediate outputs and documentation:**
+
 Execute the notebook `front.ipynb`. Custom user inputs can be defined in the first cell. The output will open in your browser.
 
 **Interactive version featuring a cleaner look and interactive elements for the user inputs:**
+
 Execute the notebook `front_interactive.ipynb`. Custom user inputs can be defined in the first cell. The output will open in your browser.
 The script running in the background is saved in the `scripts` folder. 
 
-**Regenerate data/countries_simple.gpkg**
+**Regenerate data/countries_simple.gpkg:**
+
 If for any reason you would want to regenerate this file, it can be done using the notebook `countries.ipynb`. Usually, this is not required.
