@@ -2,6 +2,7 @@
 
 ## Objective
 Wildfire mapping from remote sensing data retrieved from the FIRMS API. The project focuses on producing an interactive map allowing custom user-inputs. 
+
 Final project of the UZH course SDS210, spring semester 2026.
 
 ---------------------------------------------
