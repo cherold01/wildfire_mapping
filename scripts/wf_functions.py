@@ -166,7 +166,7 @@ def get_map(userdefined_area, enddate = None):   #accepts userdefined area as st
 
     #area_gpd.explore(column = "frp", cmap = "YlOrRd", vmin = vmin, vmax = vmax)
 
-    area_gpd_sub = area_gpd[['latitude', 'longitude', 'frp', 'acq_datetime', 'geometry']]
+    area_gpd_sub = area_gpd[['frp', 'acq_datetime', 'geometry']]
     area_gpd_sub['acq_datetime'] = area_gpd_sub['acq_datetime'].astype(str)
 
 
