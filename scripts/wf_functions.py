@@ -16,8 +16,13 @@ def get_continents():
     ]
     return continents
 
+def get_dayrangeoptions():
+    dayrangeoptions = [1,2,3,4,5]
+    return dayrangeoptions
 
-def get_map(userdefined_area, enddate = None):   #accepts userdefined area as string in the dict defined above, enddate as string format 'YYYY-MM-DD'
+
+def get_map(userdefined_area, enddate = None, day_range = 1):   #accepts userdefined area as string in the dict defined above, enddate as string format 'YYYY-MM-DD'
+    import sys
     import pandas as pd
     import requests
     import geopandas as gpd
@@ -34,6 +39,7 @@ def get_map(userdefined_area, enddate = None):   #accepts userdefined area as st
 
     #########################################################33
     
+    print('\033[1m' + 'Status Report: ' + '\033[0m')
     #API request
 
     MAP_KEY = '5eae605403f5deded880b550afef3667' #my unique map key for the API request
@@ -87,16 +93,24 @@ def get_map(userdefined_area, enddate = None):   #accepts userdefined area as st
         bbox = continents_bounding_boxes.get(standardized_name)
         if bbox is None:
             print('Error: No Bounding box could be matched to your input.')
+            print("Terminating the script...")
+            sys.exit()
         return bbox 
 
 
     #retrieve data 
 
-    enddate = pd.to_datetime(enddate, format = '%Y-%m-%d')
+    #enddate = pd.to_datetime(enddate, format = '%Y-%m-%d')
+    if enddate is None:
+        today_date = datetime.today().date()
+        enddate = pd.to_datetime(today_date.strftime(format = '%Y-%m-%d'), format = '%Y-%m-%d')
+        print('No date selected by user, today\'s date is used')
+
+    else:
+        enddate = pd.to_datetime(enddate.strftime(format = '%Y-%m-%d'), format = '%Y-%m-%d')
 
     #parameters for API call
     area = get_continent_bbox(userdefined_area) #either "world" or bbox lonmin,latmin,lonmax,latmax, e. g. 0,35,25,70 for europe, "-20,-37.5,52,37.5"  for africa
-    day_range = 1 #in range(1,5)
 
     #set sensor parameter based on enddate
     #MODIS_NRT where available
@@ -112,7 +126,7 @@ def get_map(userdefined_area, enddate = None):   #accepts userdefined area as st
     #set sensor based on enddate
     if enddate > mindate_NRT:
         sensor = 'VIIRS_NOAA20_NRT'
-        print('The displayed data is non-processed and not of science quality.')
+        print('Warning: The displayed data is non-processed and not of science quality.')
     elif enddate >= mindate_SP:
         sensor = 'VIIRS_NOAA20_SP'
     elif enddate >= mindate_modis:
@@ -137,6 +151,9 @@ def get_map(userdefined_area, enddate = None):   #accepts userdefined area as st
 
 
     #clean df_area:
+
+    if len(df_area) == 0:
+        print("Warning: No entries available for the selected date (yet?).")
 
     if sensor == 'MODIS_SP':
         mask = df_area['confidence'] > 30
@@ -314,14 +331,14 @@ def get_map(userdefined_area, enddate = None):   #accepts userdefined area as st
 
     #add title to map and save it as html file
 
-    # Add a title using folium.Element
+    #define startdate for the title
+    startdate = enddate - pd.to_timedelta(day_range-1, 'D')
 
     title_html = f'''
-                <h3 align="center" style="font-size:16px"><b>Wildfires in {userdefined_area} on {enddate.strftime(format = '%Y-%m-%d')}</b></h3>
+                <h3 align="center" style="font-size:16px"><b>Wildfires in selected area from {startdate.strftime(format = '%Y-%m-%d')} to {enddate.strftime(format = '%Y-%m-%d')}</b></h3>
                 '''
 
     m6.get_root().html.add_child(folium.Element(title_html))
-
 
     #create legend for the blue rectangle bbox
     # Create HTML for the legend
